@@ -15,11 +15,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 
@@ -41,6 +44,8 @@ public class DishController {
     @Autowired
     private CategoryService categoryService;
 
+    @Autowired
+    private RedisTemplate redisTemplate;
     /**
      * 新增菜品
      *
@@ -53,6 +58,8 @@ public class DishController {
         log.info(dishDto.toString());
         dishService.saveWithFlavor(dishDto);
 
+        Set keys = redisTemplate.keys("dish_*"); //获取所有以dish_xxx开头的key
+        redisTemplate.delete(keys); //删除这些key
         return R.success("新增菜品成功");
     }
 
@@ -128,6 +135,7 @@ public class DishController {
     public R<String> update(@RequestBody DishDto dishDto) {
         dishService.updateWithFlavor(dishDto);
 
+
         return R.success("修改菜品成功");
     }
 
@@ -153,6 +161,14 @@ public class DishController {
      */
     @GetMapping("/list")
     public R<List<DishDto>> list(Dish dish){
+        String key = "dish_" + dish.getCategoryId() + "_" + dish.getStatus();
+        // 在list方法中,查询数据库之前,先查询缓存, 缓存中有数据, 直接返回
+        List<DishDto> rediaslist = (List<DishDto>) redisTemplate.opsForValue().get(key);
+
+        if (rediaslist!=null){
+            return R.success(rediaslist);
+        }
+
         //构造查询条件
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(dish.getCategoryId() != null ,Dish::getCategoryId,dish.getCategoryId());
@@ -185,6 +201,9 @@ public class DishController {
 
             return dishDto;
         }).collect(Collectors.toList());
+
+        //将dishDto集合存入redis中
+        redisTemplate.opsForValue().set(key,dishDtoList,60, TimeUnit.MINUTES);
 
         return R.success(dishDtoList);
     }

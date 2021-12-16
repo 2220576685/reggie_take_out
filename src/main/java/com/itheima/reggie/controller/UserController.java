@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @Description:test
@@ -30,6 +32,9 @@ public class UserController {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    RedisTemplate redisTemplate;
+
     @PostMapping("/sendMsg")
     public R<String> sendMsg(@RequestBody User user, HttpSession session) {
         String phone = user.getPhone();
@@ -39,8 +44,9 @@ public class UserController {
 
 
             //SMSUtils.sendMessage("瑞吉外卖","",phone,code);
-            session.setAttribute(phone, code);
+            //session.setAttribute(phone, code);
 
+            redisTemplate.opsForValue().set(phone,code,120, TimeUnit.SECONDS);
             return R.success("手机短信验证码发送成功");
         }
         return R.error("验证码发送失败");
@@ -53,9 +59,14 @@ public class UserController {
         String code = map.get("code").toString();
 //        2). 从Session中获取到手机号对应的正确的验证码
 
-        Object codeInSession = session.getAttribute(phone);
+       // Object codeInSession = session.getAttribute(phone);
+       // 2). 从Redis中获取到手机号对应的正确的验证码
+        Object codeInSession = redisTemplate.opsForValue().get(phone);
 //        3). 进行验证码的比对 , 如果比对失败, 直接返回错误信息
         if (codeInSession != null && codeInSession.equals(code)) {
+
+            //删除手机号
+            redisTemplate.delete(phone);
             LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
             queryWrapper.eq(User::getPhone, phone);
 
