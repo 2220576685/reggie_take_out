@@ -8,6 +8,9 @@ spring:
     host: 192.168.140.128
     port: 6379
     database: 0
+  cache:
+    redis:
+      time-to-live: 1800000
   datasource:
     druid:
       driver-class-name: com.mysql.cj.jdbc.Driver

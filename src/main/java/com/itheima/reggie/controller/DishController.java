@@ -15,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import org.springframework.cache.annotation.CacheConfig;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -159,15 +161,12 @@ public class DishController {
      * @param dish
      * @return
      */
-    @GetMapping("/list")
-    public R<List<DishDto>> list(Dish dish){
-        String key = "dish_" + dish.getCategoryId() + "_" + dish.getStatus();
-        // 在list方法中,查询数据库之前,先查询缓存, 缓存中有数据, 直接返回
-        List<DishDto> rediaslist = (List<DishDto>) redisTemplate.opsForValue().get(key);
 
-        if (rediaslist!=null){
-            return R.success(rediaslist);
-        }
+
+    @GetMapping("/list")
+    @Cacheable(value = "dish_" ,key ="#dish.categoryId")
+    public R<List<DishDto>> list(Dish dish){
+
 
         //构造查询条件
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
@@ -203,7 +202,7 @@ public class DishController {
         }).collect(Collectors.toList());
 
         //将dishDto集合存入redis中
-        redisTemplate.opsForValue().set(key,dishDtoList,60, TimeUnit.MINUTES);
+
 
         return R.success(dishDtoList);
     }

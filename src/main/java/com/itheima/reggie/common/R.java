@@ -2,6 +2,7 @@ package com.itheima.reggie.common;
 
 import lombok.Data;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,7 +12,7 @@ import java.util.Map;
  * @Date: 2021/11/30 0030 12:32
  */
 @Data
-public class R<T> {
+public class R<T> implements Serializable {
     private Integer code; //编码：1成功，0和其它数字为失败
     private String msg; //错误信息
     private T data; //数据
